@@ -4,6 +4,7 @@ import React, { useState, useTransition } from 'react';
 import Link from 'next/link';
 import { signOut } from 'next-auth/react';
 import { drawLotteryAction } from '@/actions/lotteryActions';
+import { createAdminAction } from '@/actions/adminActions';
 import { SerializedLotteryResult } from '@/components/TicketChecker';
 
 interface AdminDrawClientProps {
@@ -16,10 +17,17 @@ export default function AdminDrawClient({
   adminName,
 }: AdminDrawClientProps) {
   const [isPending, startTransition] = useTransition();
+  const [isAdminPending, startAdminTransition] = useTransition();
   const [year, setYear] = useState(initialResult?.year || '2570');
   const [latestResult, setLatestResult] = useState<SerializedLotteryResult | null>(
     initialResult
   );
+
+  // State สำหรับฟอร์มสร้างผู้ดูแลระบบใหม่
+  const [newUsername, setNewUsername] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+
   const [toast, setToast] = useState<{
     show: boolean;
     type: 'success' | 'error';
@@ -38,6 +46,27 @@ export default function AdminDrawClient({
       const response = await drawLotteryAction(year);
       if (response.success && response.data) {
         setLatestResult(response.data);
+        showToast('success', response.message);
+      } else {
+        showToast('error', response.message);
+      }
+    });
+  };
+
+  const handleCreateAdmin = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (newPassword !== confirmPassword) {
+      showToast('error', 'รหัสผ่านและยืนยันรหัสผ่านไม่ตรงกัน');
+      return;
+    }
+
+    startAdminTransition(async () => {
+      const response = await createAdminAction(newUsername, newPassword);
+      if (response.success) {
+        setNewUsername('');
+        setNewPassword('');
+        setConfirmPassword('');
         showToast('success', response.message);
       } else {
         showToast('error', response.message);
@@ -92,7 +121,7 @@ export default function AdminDrawClient({
         </div>
       </nav>
 
-      {/* กล่องควบคุมการสุ่มรางวัล */}
+      {/* กล่องควบคุมการสุ่มรางวัล และการจัดการบัญชีผู้ดูแลระบบ */}
       <main className="max-w-5xl mx-auto px-4 py-10 space-y-8">
         <div className="bg-white rounded-3xl shadow-md border border-gray-200 p-8 text-center">
           <h2 className="text-2xl font-extrabold text-gray-800 mb-2">
@@ -150,6 +179,107 @@ export default function AdminDrawClient({
               <span>🎲 เริ่มสุ่มรางวัลใหม่</span>
             )}
           </button>
+        </div>
+
+        {/* ส่วนสร้างบัญชีผู้ดูแลระบบใหม่ */}
+        <div className="bg-white rounded-3xl shadow-sm border border-gray-200 p-8">
+          <div className="border-b border-gray-100 pb-4 mb-6">
+            <h3 className="text-xl font-bold text-gray-800">
+              👤 สร้างบัญชีผู้ดูแลระบบใหม่
+            </h3>
+            <p className="text-sm text-gray-500 mt-1">
+              เพิ่มบัญชีผู้ดูแลระบบคนใหม่สำหรับเข้าใช้งานแผงควบคุมการออกรางวัล
+            </p>
+          </div>
+
+          <form
+            onSubmit={handleCreateAdmin}
+            className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end"
+          >
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                ชื่อผู้ใช้งานใหม่
+              </label>
+              <input
+                type="text"
+                required
+                minLength={3}
+                value={newUsername}
+                onChange={(e) => setNewUsername(e.target.value)}
+                disabled={isAdminPending}
+                placeholder="เช่น admin_ssk"
+                className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-red-600 outline-none text-gray-900"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                รหัสผ่าน (อย่างน้อย 6 ตัวอักษร)
+              </label>
+              <input
+                type="password"
+                required
+                minLength={6}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                disabled={isAdminPending}
+                placeholder="กรอกรหัสผ่าน"
+                className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-red-600 outline-none text-gray-900"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                ยืนยันรหัสผ่านอีกครั้ง
+              </label>
+              <input
+                type="password"
+                required
+                minLength={6}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                disabled={isAdminPending}
+                placeholder="กรอกรหัสผ่านอีกครั้ง"
+                className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-red-600 outline-none text-gray-900"
+              />
+            </div>
+
+            <div className="md:col-span-3 flex justify-end pt-2">
+              <button
+                type="submit"
+                disabled={isAdminPending}
+                className="px-6 py-3 rounded-xl bg-gray-900 hover:bg-gray-800 text-white font-bold text-sm shadow-md transition inline-flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {isAdminPending ? (
+                  <>
+                    <svg
+                      className="animate-spin h-4 w-4 text-white"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                      />
+                    </svg>
+                    <span>กำลังบันทึกข้อมูล...</span>
+                  </>
+                ) : (
+                  <span>+ บันทึกบัญชีผู้ดูแลระบบใหม่</span>
+                )}
+              </button>
+            </div>
+          </form>
         </div>
 
         {/* แสดงผลรางวัลล่าสุดที่อยู่ในระบบ */}
@@ -228,4 +358,3 @@ export default function AdminDrawClient({
     </div>
   );
 }
-
