@@ -1,4 +1,5 @@
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import bcrypt from 'bcryptjs';
 import { connectDB } from '@/lib/mongodb';
@@ -17,11 +18,14 @@ interface LocalDBStructure {
   lotteryResults: SerializedLotteryResult[];
 }
 
-const DATA_DIR = path.join(process.cwd(), 'data');
+// บน Vercel Serverless ไฟล์ระบบหลักเป็น Read-only จึงใช้ os.tmpdir() แทนเมื่อรันบน Cloud
+const DATA_DIR = process.env.VERCEL
+  ? path.join(os.tmpdir(), 'lotto-data')
+  : path.join(process.cwd(), 'data');
 const DB_FILE = path.join(DATA_DIR, 'local-db.json');
 
 /**
- * อ่านข้อมูลจากไฟล์ JSON สำรอง (กรณีไม่ได้เปิดบริการ MongoDB ในเครื่อง)
+ * อ่านข้อมูลจากไฟล์ JSON สำรอง (กรณีไม่ได้เชื่อมต่อ MongoDB)
  */
 async function readLocalDB(): Promise<LocalDBStructure> {
   if (!fs.existsSync(DATA_DIR)) {
@@ -56,7 +60,7 @@ function writeLocalDB(data: LocalDBStructure) {
 }
 
 /**
- * ค้นหาผู้ดูแลระบบจากชื่อผู้ใช้ (ใช้ MongoDB เป็นหลัก และสลับไปใช้ Local JSON อัตโนมัติหาก MongoDB ยังไม่เปิด)
+ * ค้นหาผู้ดูแลระบบจากชื่อผู้ใช้ (ใช้ MongoDB เป็นหลัก และสลับไปใช้ Local JSON อัตโนมัติหากยังไม่ได้ตั้งค่า MongoDB)
  */
 export async function findAdminByUsername(
   username: string
@@ -81,7 +85,6 @@ export async function findAdminByUsername(
       password: admin.password,
     };
   } catch {
-    // Fallback ไปใช้ฐานข้อมูลสำรองในโปรเจกต์หากไม่ได้เปิด MongoDB
     const db = await readLocalDB();
     const found = db.admins.find((a) => a.username === username);
     return found || null;
@@ -136,4 +139,3 @@ export async function saveLotteryResultToDB(payload: {
     return newRecord;
   }
 }
-

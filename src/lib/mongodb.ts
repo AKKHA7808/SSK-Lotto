@@ -1,11 +1,5 @@
 import mongoose from 'mongoose';
 
-const MONGODB_URI = process.env.MONGODB_URI!;
-
-if (!MONGODB_URI) {
-  throw new Error('กรุณากำหนดค่า MONGODB_URI ในไฟล์ .env.local');
-}
-
 interface MongooseCache {
   conn: typeof mongoose | null;
   promise: Promise<typeof mongoose> | null;
@@ -22,6 +16,12 @@ if (!global.mongooseCache) {
 }
 
 export async function connectDB() {
+  const MONGODB_URI = process.env.MONGODB_URI;
+
+  if (!MONGODB_URI) {
+    throw new Error('กรุณากำหนดค่า MONGODB_URI ใน Environment Variables');
+  }
+
   if (cached.conn) {
     return cached.conn;
   }
@@ -46,4 +46,3 @@ export async function connectDB() {
 
   return cached.conn;
 }
-
